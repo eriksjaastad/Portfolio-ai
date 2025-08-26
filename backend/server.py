@@ -238,8 +238,12 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:3000",  # Development
+        "https://varicell.com",   # Production
+        "https://www.varicell.com"  # Production www
+    ],
+    allow_methods=["GET"],  # We only need GET for the portfolio API
     allow_headers=["*"],
 )
 
