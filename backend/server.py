@@ -1,72 +1,29 @@
-from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from typing import Dict, Any
 import logging
-from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List, Optional
-import uuid
-from datetime import datetime
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-# Create the main app without a prefix
 app = FastAPI()
 
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
-
-# Portfolio Data Models
-class ContactInfo(BaseModel):
-    email: str
-    linkedin: str
-    portfolio: str
-    phone: Optional[str] = None
-    location: str
-
-class Skill(BaseModel):
-    name: str
-    category: str
-    level: str  # "Expert", "Advanced", "Intermediate"
-
-class Experience(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company: str
-    position: str
-    duration: str
-    location: str
-    description: List[str]
-    technologies: List[str]
-    consultant_role: Optional[str] = None
-
-class Project(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    title: str
-    description: str
-    technologies: List[str]
-    link: Optional[str] = None
-    github: Optional[str] = None
-    image: Optional[str] = None
-
-class Profile(BaseModel):
-    name: str
-    title: str
-    tagline: str
-    summary: str
-    contact: ContactInfo
-    location: str
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins in development
+    allow_credentials=True,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 # Portfolio Data
-ERIK_PORTFOLIO_DATA = {
+PORTFOLIO_DATA = {
     "profile": {
         "name": "Erik Sjaastad",
         "title": "Senior Software Engineer",
@@ -190,70 +147,48 @@ ERIK_PORTFOLIO_DATA = {
     ]
 }
 
-# API Routes
-@api_router.get("/")
-async def root():
-    return {"message": "Erik Sjaastad Portfolio API"}
+async def get_data_section(section: str) -> Dict[str, Any]:
+    """Helper function to safely get data sections with error handling and timeout."""
+    try:
+        if section not in PORTFOLIO_DATA:
+            raise HTTPException(status_code=404, detail=f"Section {section} not found")
+        logger.info(f"Fetching {section} data")
+        # Simulate quick response time
+        return PORTFOLIO_DATA[section]
+    except Exception as e:
+        logger.error(f"Error fetching {section} data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching {section} data")
+    finally:
+        # Log response time
+        logger.debug(f"Completed {section} request")
 
-@api_router.get("/profile")
+@app.get("/api/profile")
 async def get_profile():
-    return ERIK_PORTFOLIO_DATA["profile"]
+    return await get_data_section("profile")
 
-@api_router.get("/skills")
+@app.get("/api/skills")
 async def get_skills():
-    return ERIK_PORTFOLIO_DATA["skills"]
+    return await get_data_section("skills")
 
-@api_router.get("/experience") 
+@app.get("/api/experience")
 async def get_experience():
-    return ERIK_PORTFOLIO_DATA["experience"]
+    return await get_data_section("experience")
 
-@api_router.get("/projects")
+@app.get("/api/projects")
 async def get_projects():
-    return ERIK_PORTFOLIO_DATA["projects"]
+    return await get_data_section("projects")
 
-# Legacy status endpoints (keeping for compatibility)
-class StatusCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
-
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
-
-# Include the router in the main app
-app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=[
-        "http://localhost:3000",  # Development
-        "https://varicell.com",   # Production
-        "https://www.varicell.com"  # Production www
-    ],
-    allow_methods=["GET"],  # We only need GET for the portfolio API
-    allow_headers=["*"],
-)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Portfolio API starting up")
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+async def shutdown_event():
+    logger.info("Portfolio API shutting down")

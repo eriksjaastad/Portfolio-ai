@@ -2,8 +2,11 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 const API = `${BACKEND_URL}/api`;
+
+// Log the API URL for debugging
+console.log('Using API URL:', API);
 
 // Navigation Component
 const Navigation = ({ activeSection, setActiveSection }) => {
@@ -354,25 +357,69 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('hero');
 
+  const [error, setError] = useState(null);
+
+  // Configure axios defaults
+  useEffect(() => {
+    axios.defaults.timeout = 5000; // 5 second timeout
+    axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.code === 'ECONNABORTED') {
+          return Promise.reject(new Error('Request timed out. Please try again.'));
+        }
+        return Promise.reject(error);
+      }
+    );
+  }, []);
+
+  // Prevent duplicate fetches in development
+  const [hasFetched, setHasFetched] = useState(false);
+
   // Fetch portfolio data
   useEffect(() => {
     const fetchPortfolioData = async () => {
+      // Skip if we've already fetched data
+      if (hasFetched) return;
+      
       try {
-        const [profileRes, skillsRes, experienceRes, projectsRes] = await Promise.all([
-          axios.get(`${API}/profile`),
-          axios.get(`${API}/skills`),
-          axios.get(`${API}/experience`),
-          axios.get(`${API}/projects`)
-        ]);
-
-        setPortfolioData({
-          profile: profileRes.data,
-          skills: skillsRes.data,
-          experience: experienceRes.data,
-          projects: projectsRes.data
+        setError(null);
+        console.log('Starting API calls to:', API);
+        const endpoints = ['profile', 'skills', 'experience', 'projects'];
+        const requests = endpoints.map(endpoint => {
+          console.log(`Fetching ${endpoint} from: ${API}/${endpoint}`);
+          return axios.get(`${API}/${endpoint}`).catch(error => {
+            console.error(`Error fetching ${endpoint}:`, error.message);
+            console.error('Full error:', error);
+            return { data: null };
+          });
         });
+
+        const [profileRes, skillsRes, experienceRes, projectsRes] = await Promise.all(requests);
+
+        console.log('API responses:', {
+          profile: profileRes?.data,
+          skills: skillsRes?.data,
+          experience: experienceRes?.data,
+          projects: projectsRes?.data
+        });
+
+        const newData = {
+          profile: profileRes?.data,
+          skills: skillsRes?.data,
+          experience: experienceRes?.data,
+          projects: projectsRes?.data
+        };
+
+        if (!newData.profile && !newData.skills && !newData.experience && !newData.projects) {
+          throw new Error('No data received from any endpoint');
+        }
+
+        setPortfolioData(newData);
+        setHasFetched(true);
       } catch (error) {
         console.error('Error fetching portfolio data:', error);
+        setError(error.message || 'Failed to load portfolio data');
       } finally {
         setLoading(false);
       }
@@ -413,6 +460,26 @@ function App() {
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center max-w-lg mx-auto px-4">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-4">Oops! Something went wrong</h2>
+          <p className="text-gray-300 mb-8">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('Rendering with data:', portfolioData);
 
   return (
     <div className="App bg-gray-900 text-white min-h-screen">
