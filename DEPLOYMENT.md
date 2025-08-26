@@ -81,3 +81,4 @@ gunicorn -w 4 -k uvicorn.workers.UvicornWorker server:app
 - The application includes basic logging configuration
 - Monitor the application logs for any issues
 - Consider setting up application monitoring (e.g., Sentry) for production
+
