@@ -1,0 +1,154 @@
+:root {
+  --bg1: #2a2a2a;
+  --bg2: #353535;
+  --accent: #a78bfa;
+  --accent-2: #60a5fa;
+  --text: #ffffff;
+  --speed: 220ms;
+}
+
+.splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  background: linear-gradient(120deg, var(--bg2), var(--bg1));
+  z-index: 50;
+}
+
+/* Soft grain */
+.grain::before{
+  content:"";
+  position:absolute;
+  inset:-100vmax;
+  background:repeating-radial-gradient(circle at 20% 20%,#0000 0 2px,#0001 3px 4px);
+  opacity:.35;
+  filter:contrast(140%);
+  animation:drift 18s linear infinite;
+  pointer-events:none;
+  z-index:-1;
+}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(-10%,-6%,0) scale(1.1)}}
+
+/* Halo */
+.ring, .ring::before, .ring::after {
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  inset:50% auto auto 50%;
+  width: min(40vmax, 60vh);
+  height: min(40vmax, 60vh);
+  translate:-50% -50%;
+  background: conic-gradient(from 0deg, var(--accent), var(--accent-2), var(--accent));
+  mask: radial-gradient(circle at 50% 50%, #0000 60%, #000 62%);
+  opacity:.22;
+  filter: blur(18px) saturate(120%);
+  animation: spin 22s linear infinite;
+}
+.ring::before{width:min(54vmax, 80vh);height:min(54vmax, 80vh);opacity:.12;animation-duration:34s}
+.ring::after{width:min(28vmax, 40vh);height:min(28vmax, 40vh);opacity:.35;animation-duration:14s}
+@keyframes spin{to{transform: rotate(1turn)}}
+
+/* Year odometer */
+.roller {
+  display: flex;
+  gap: 0.06em;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+.digit {
+  width: clamp(32px, 7vw, 88px);
+  height: clamp(45px, 10vw, 110px);
+  border-radius: 8px;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.strip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  transition: transform var(--speed) cubic-bezier(.2,.7,.2,1);
+  will-change: transform;
+}
+.cell {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: clamp(32px, 7vw, 120px);
+  letter-spacing: .02em;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+  box-sizing: border-box;
+  padding: 2px 0;
+  margin: 0;
+  transform: translateY(2px);
+}
+
+.label {
+  margin-top: 12px;
+  font-size: clamp(12px, 1.8vw, 18px);
+  text-align: center;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Skip button */
+.skip {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 14px;
+  opacity: .85;
+}
+.btn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Pulse when finished */
+@keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.07)} 100%{transform:scale(1)} }
+.pulse { animation: pulse .9s ease-in-out 2; }
+
+@media (prefers-reduced-motion: reduce){
+  .grain::before,.ring,.ring::before,.ring::after{animation:none!important}
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .digit {
+    width: clamp(28px, 6vw, 40px);
+    height: clamp(40px, 8vw, 56px);
+  }
+  .cell {
+    font-size: clamp(28px, 6vw, 40px);
+  }
+  .label {
+    font-size: 14px;
+  }
+  .ring, .ring::before, .ring::after {
+    filter: blur(12px) saturate(110%);
+  }
+}
